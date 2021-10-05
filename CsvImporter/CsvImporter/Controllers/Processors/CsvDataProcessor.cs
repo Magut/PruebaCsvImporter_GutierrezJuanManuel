@@ -120,10 +120,10 @@ namespace CsvImporter.Controllers.Processors
                                             Flag finishedEnqueuingDataForWriter)
         {
             if (readerQueue is null || dataToWriteQueue is null)
-                throw new ArgumentNullException(readerQueue is null ? "readerQueue" : "dataToWriteQueue", "ERROR! Cannot initialize with invalid parameters.");
+                throw new ArgumentNullException(readerQueue is null ? nameof(readerQueue) : nameof(dataToWriteQueue), "ERROR! Cannot initialize with invalid parameters.");
 
             if (readerFinishedReading is null || finishedEnqueuingDataForWriter is null)
-                throw new ArgumentNullException(readerFinishedReading is null ? "readerFinishedReading" : "finishedEnqueuingDataForWriter", "ERROR! Cannot initialize with invalid parameters.");
+                throw new ArgumentNullException(readerFinishedReading is null ? nameof(readerFinishedReading) : nameof(finishedEnqueuingDataForWriter), "ERROR! Cannot initialize with invalid parameters.");
         }
     }
 }

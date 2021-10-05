@@ -167,7 +167,7 @@ namespace CsvImporter.Controllers.Readers
         private void ValidateInitialization(StreamReader stream, ConcurrentQueue<string> queue)
         {
             if (stream is null || queue is null)
-                throw new ArgumentNullException(stream is null ? "stream" : "queue", "ERROR! Cannot initialize with no valid stream and queue parameters.");
+                throw new ArgumentNullException(stream is null ? nameof(stream) : nameof(queue), "ERROR! Cannot initialize with no valid stream and queue parameters.");
         }
     }
 }

@@ -27,17 +27,18 @@ namespace CsvImporter.Models
         /// with the format of a CSV row
         /// </summary>
         /// <param name="csvRow">CSV row</param>
+        /// <exception cref="ArgumentException">If the csvRow has no valid data</exception>
         public SingleDayStock(string csvRow, char separator = ';')
         {
             string[] csvRowFields = csvRow.Split(separator);
             if (!long.TryParse(csvRowFields[0], out long pointOfSale))
-                throw new ArgumentException("The parameter is not a valid CSV row", "csvRow");
+                throw new ArgumentException("The parameter is not a valid CSV row", nameof(csvRow));
             if (!long.TryParse(csvRowFields[1], out long product))
-                throw new ArgumentException("The parameter is not a valid CSV row", "csvRow");
+                throw new ArgumentException("The parameter is not a valid CSV row", nameof(csvRow));
             if (!DateTime.TryParseExact(csvRowFields[2], "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime date))
-                throw new ArgumentException("The parameter is not a valid CSV row", "csvRow");
+                throw new ArgumentException("The parameter is not a valid CSV row", nameof(csvRow));
             if (!long.TryParse(csvRowFields[3], out long stock))
-                throw new ArgumentException("The parameter is not a valid CSV row", "csvRow");
+                throw new ArgumentException("The parameter is not a valid CSV row", nameof(csvRow));
 
             _stockId = new StockId(pointOfSale, product, stock);
             _date = date;

@@ -89,7 +89,7 @@ namespace CsvImporter.Controllers.Readers
         private void ValidateInitialization(Uri fileUrl, ConcurrentQueue<string> queue)
         {
             if (fileUrl is null || queue is null)
-                throw new ArgumentNullException(fileUrl is null ? "fileUrl" : "queue", "ERROR! Cannot initialize with invalid parameters.");
+                throw new ArgumentNullException(fileUrl is null ? nameof(fileUrl) : nameof(queue), "ERROR! Cannot initialize with invalid parameters.");
         }
     }
 }

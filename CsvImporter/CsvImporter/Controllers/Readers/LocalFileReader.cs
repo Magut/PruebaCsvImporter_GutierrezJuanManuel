@@ -86,10 +86,10 @@ namespace CsvImporter.Controllers.Readers
         private void ValidateInitialization(string localFilePath, ConcurrentQueue<string> queue)
         {
             if (localFilePath is null || queue is null)
-                throw new ArgumentNullException(localFilePath is null ? "localFilePath" : "queue", "ERROR! Cannot initialize with invalid parameters.");
+                throw new ArgumentNullException(localFilePath is null ? nameof(localFilePath) : nameof(queue), "ERROR! Cannot initialize with invalid parameters.");
 
             if (String.IsNullOrWhiteSpace(localFilePath))
-                throw new ArgumentException("ERROR! Cannot initialize with invalid parameters.", "localFilePath");
+                throw new ArgumentException("ERROR! Cannot initialize with invalid parameters.", nameof(localFilePath));
         }
     }
 }
