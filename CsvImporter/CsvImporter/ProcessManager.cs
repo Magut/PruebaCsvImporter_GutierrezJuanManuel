@@ -1,0 +1,9 @@
+﻿
+
+namespace CsvImporter
+{
+    class ProcessManager
+    {
+
+    }
+}
