@@ -8,7 +8,7 @@ using Xunit;
 
 namespace CsvImporter.Test.ProcessorsTests
 {
-    public class CsvDataProcessorTests
+    public class CsvDataProcessorTest
     {
         private static readonly string[] _testFileRows = new string[7]
         {
