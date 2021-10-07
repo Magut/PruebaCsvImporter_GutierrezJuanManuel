@@ -1,8 +1,8 @@
-﻿using Azure.Storage.Blobs;
-using CsvImporter.Models;
+﻿using CsvImporter.Models;
 using System;
 using System.Collections.Concurrent;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace CsvImporter.Controllers.Readers
@@ -69,12 +69,25 @@ namespace CsvImporter.Controllers.Readers
         /// <returns>No object or value is returned by this method when it completes</returns>
         public async Task ReadFileAndEnqueueDataAsync()
         {
-            using (Stream stream = await new BlobClient(_fileUrl).OpenReadAsync())
+            CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
+            CancellationToken cancellationToken = cancellationTokenSource.Token;
+            await ReadFileAndEnqueueDataAsync(cancellationToken);
+        }
+
+        /// <summary>
+        /// It starts reading the file until the end
+        /// and equeues the rows read in a <see cref="ConcurrentQueue{String}"/>
+        /// </summary>
+        /// <param name="cancellationToken">Token for cancellation</param>
+        /// <returns>No object or value is returned by this method when it completes</returns>
+        public async Task ReadFileAndEnqueueDataAsync(CancellationToken cancellationToken)
+        {
+            using (Stream stream = await Factory.BlobClientCreator(_fileUrl).OpenReadAsync(cancellationToken: cancellationToken))
             {
-                using (StreamReader streamReader = new StreamReader(stream))
+                using (StreamReader streamReader = Factory.StreamReaderCreator(stream))
                 {
-                    DataReader reader = new DataReader(streamReader, _queue, _finishedReading);
-                    await reader.ReadAndEnqueueDataAsync();
+                    DataReader reader = Factory.DataReaderCreator(streamReader, _queue, _finishedReading);
+                    await reader.ReadAndEnqueueDataAsync(cancellationToken);
                 }
             }
         }

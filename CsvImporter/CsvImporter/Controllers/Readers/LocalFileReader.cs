@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace CsvImporter.Controllers.Readers
@@ -68,7 +69,20 @@ namespace CsvImporter.Controllers.Readers
         /// <returns>No object or value is returned by this method when it completes</returns>
         public async Task ReadFileAndEnqueueDataAsync()
         {
-            using (StreamReader streamReader = new StreamReader(_localFilePath))
+            CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
+            CancellationToken cancellationToken = cancellationTokenSource.Token;
+            await ReadFileAndEnqueueDataAsync(cancellationToken);
+        }
+
+        /// <summary>
+        /// It starts reading the file until the end
+        /// and equeues the rows read in a <see cref="ConcurrentQueue{String}"/>
+        /// </summary>
+        /// <param name="cancellationToken">Token for cancellation</param>
+        /// <returns>No object or value is returned by this method when it completes</returns>
+        public async Task ReadFileAndEnqueueDataAsync(CancellationToken cancellationToken)
+        {
+            using (StreamReader streamReader = Factory.StreamReaderCreator(_localFilePath))
             {
                 DataReader reader = new DataReader(streamReader, _dataReadQueue, _finishedReading);
                 await reader.ReadAndEnqueueDataAsync();

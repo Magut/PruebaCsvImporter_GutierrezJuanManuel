@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace CsvImporter.Controllers.Readers
@@ -70,6 +71,19 @@ namespace CsvImporter.Controllers.Readers
         /// <returns>No object or value is returned by this method when it completes</returns>
         public async Task ReadAndEnqueueDataAsync()
         {
+            CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
+            CancellationToken cancellationToken = cancellationTokenSource.Token;
+            await ReadAndEnqueueDataAsync(cancellationToken);
+        }
+
+        /// <summary>
+        /// It starts reading the stream until the end
+        /// and equeues the rows read in the <see cref="ConcurrentQueue{String}"/> setted
+        /// </summary>
+        /// <param name="cancellationToken">Token for cancellation</param>
+        /// <returns>No object or value is returned by this method when it completes</returns>
+        public async Task ReadAndEnqueueDataAsync(CancellationToken cancellationToken)
+        {
             using (_stream)
             {
                 // First row in stream file
@@ -89,7 +103,7 @@ namespace CsvImporter.Controllers.Readers
                 while ((row = await ReadNextRowAsync()) != null)
                 {
                     _queue.Enqueue(row);
-                    await WaitUntilQueueHasSpaceAsync();
+                    await WaitUntilQueueHasSpaceAsync(cancellationToken);
                 }
 
                 if (_finishedReading != null)
@@ -137,13 +151,14 @@ namespace CsvImporter.Controllers.Readers
         /// <summary>
         /// It waits unit the queue has space to enqueue the new row
         /// </summary>
+        /// <param name="cancellationToken">Token for cancellation</param>
         /// <returns>No object or value is returned by this method when it completes</returns>
-        private async Task WaitUntilQueueHasSpaceAsync()
+        private async Task WaitUntilQueueHasSpaceAsync(CancellationToken cancellationToken)
         {
-            while(_queue.Count >= MaxQueueItems)
+            while (_queue.Count >= MaxQueueItems)
             {
                 // TODO Esto podría ser un evento también disparado por quien desencola
-                await Task.Delay(MilisecondsBetweenQueueSpaceChecks);
+                await Task.Delay(MilisecondsBetweenQueueSpaceChecks, cancellationToken);
             }
         }
 

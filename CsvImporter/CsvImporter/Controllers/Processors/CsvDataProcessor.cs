@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace CsvImporter.Controllers.Processors
@@ -59,24 +60,37 @@ namespace CsvImporter.Controllers.Processors
         /// <returns>No object or value is returned by this method when it completes</returns>
         public async Task ProcessAndEnqueueDataAsync()
         {
-            while (!(_readerFinishedReading.Event && _readerQueue.IsEmpty))
+            CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
+            CancellationToken cancellationToken = cancellationTokenSource.Token;
+            await ProcessAndEnqueueDataAsync(cancellationToken);
+        }
+
+        /// <summary>
+        /// It starts processing the CSV rows enqueued by the reader and enqueues
+        /// the data read in a <see cref="ConcurrentQueue{SingleDayStock}"/> to feed the writer
+        /// </summary>
+        /// <param name="cancellationToken">Token for cancellation</param>
+        /// <returns>No object or value is returned by this method when it completes</returns>
+        public async Task ProcessAndEnqueueDataAsync(CancellationToken cancellationToken)
+        {
+            while (!cancellationToken.IsCancellationRequested && !(_readerFinishedReading.Event && _readerQueue.IsEmpty))
             {
                 // Checks if there is space in the output queue
                 if (_dataToWriteQueue.Count > MaxDataToWriteQueueItems)
                 {
                     Debug.WriteLine("Se llenó la cola de datos procesados y aún no insertados en BD. Espero y vuelvo a chequeuar.");
-                    await Task.Delay(MiliSecondsBetweenQueueSpaceChecks);
+                    await Task.Delay(MiliSecondsBetweenQueueSpaceChecks, cancellationToken);
                     continue;
                 }
 
                 // Checks if there is items in the input queue
                 if (_readerQueue.IsEmpty)
                 {
-                    await Task.Delay(MiliSecondsBetweenDequeTries);
+                    await Task.Delay(MiliSecondsBetweenDequeTries, cancellationToken);
                     continue;
                 }
 
-                SingleDayStock singleDayStock = await GetItemFromReaderQueueAsync();
+                SingleDayStock singleDayStock = await GetItemFromReaderQueueAsync(cancellationToken);
                 if (singleDayStock is not null)
                     _dataToWriteQueue.Enqueue(singleDayStock);
             }
@@ -89,18 +103,20 @@ namespace CsvImporter.Controllers.Processors
         /// and returns it parsed to SingleDayStock
         /// </summary>
         /// <returns><see cref="SingleDayStock"/> with the row data parsed</returns>
-        private async Task<SingleDayStock> GetItemFromReaderQueueAsync()
+        private async Task<SingleDayStock> GetItemFromReaderQueueAsync(CancellationToken cancellationToken)
         {
-            string csvRow;
+            string csvRow = string.Empty;
 
-            while(!_readerQueue.TryDequeue(out csvRow))
+            while(!cancellationToken.IsCancellationRequested && !_readerQueue.TryDequeue(out csvRow))
             {
                 Debug.WriteLine($"No pude desencolar, intentaré nuevamente luego de {MiliSecondsBetweenDequeTries} mseg.");
-                await Task.Delay(MiliSecondsBetweenDequeTries);
-                return null;
+                await Task.Delay(MiliSecondsBetweenDequeTries, cancellationToken);
             }
 
-            return new SingleDayStock(csvRow);
+            if (cancellationToken.IsCancellationRequested)
+                return null;
+            else
+                return new SingleDayStock(csvRow);
         }
 
         /// <summary>
