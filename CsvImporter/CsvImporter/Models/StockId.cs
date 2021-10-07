@@ -4,9 +4,9 @@ namespace CsvImporter.Models
 {
     public class StockId : IEquatable<StockId>
     {
-        private readonly long _pointOfSale;
-        private readonly long _product;
-        private readonly long _stock;
+        private readonly string _pointOfSale;
+        private readonly string _product;
+        private readonly int _stock;
 
         /// <summary>
         /// Constructor with all the needed data
@@ -14,7 +14,7 @@ namespace CsvImporter.Models
         /// <param name="pointOfSale"></param>
         /// <param name="product"></param>
         /// <param name="stock"></param>
-        public StockId(long pointOfSale, long product, long stock)
+        public StockId(string pointOfSale, string product, int stock)
         {
             _pointOfSale = pointOfSale;
             _product = product;
@@ -24,15 +24,15 @@ namespace CsvImporter.Models
         /// <summary>
         /// Property for getting the value of the Point of sale initialized
         /// </summary>
-        public long PointOfSale => _pointOfSale;
+        public string PointOfSale => _pointOfSale;
         /// <summary>
         /// Property for getting the value of the Product ID initialized
         /// </summary>
-        public long Product => _product;
+        public string Product => _product;
         /// <summary>
         /// Property for getting the value of the amount in stock initialized
         /// </summary>
-        public long Stock => _stock;
+        public int Stock => _stock;
 
         #region Equals operations
 

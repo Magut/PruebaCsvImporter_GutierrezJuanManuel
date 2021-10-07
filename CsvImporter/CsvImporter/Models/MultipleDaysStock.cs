@@ -34,9 +34,9 @@ namespace CsvImporter.Models
         }
 
         public StockId StockId => _stockId;
-        public long PointOfSale => _stockId.PointOfSale;
-        public long Product => _stockId.Product;
-        public long Stock => _stockId.Stock;
+        public string PointOfSale => _stockId.PointOfSale;
+        public string Product => _stockId.Product;
+        public int Stock => _stockId.Stock;
 
         /// <summary>
         /// Date from which this stock status is valid
