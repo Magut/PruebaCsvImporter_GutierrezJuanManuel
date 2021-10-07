@@ -9,10 +9,10 @@ SET QUOTED_IDENTIFIER ON
 GO
 
 CREATE TABLE [dbo].[StockHistory](
-	[PointOfSale] [int] NOT NULL,
-	[Product] [int] NOT NULL,
-	[Date] [date] NOT NULL,
-	[Stock] [int] NOT NULL
+	[PointOfSale] [NVARCHAR] (MAX) NOT NULL,
+	[Product] [NVARCHAR] (MAX) NOT NULL,
+	[Date] [DATE] NOT NULL,
+	[Stock] [INT] NOT NULL
 ) ON [PRIMARY]
 GO
 
