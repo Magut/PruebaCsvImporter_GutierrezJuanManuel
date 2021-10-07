@@ -12,6 +12,6 @@ namespace CsvImporter.Controllers.Processors
         /// and enqueues the data read in another queue to feed the writer
         /// </summary>
         /// <returns>No object or value is returned by this method when it completes</returns>
-        public Task StartProcessingAndEnqueuingDataAsync();
+        public Task ProcessAndEnqueueDataAsync();
     }
 }

@@ -82,7 +82,7 @@ namespace CsvImporter.Test.ProcessorsTests
         }
 
         [Fact]
-        public void StartProcessingAndEnqueuingDataAsync_WithEmptyAndFinishedInputQueue_EnquesNothing()
+        public void ProcessAndEnqueueDataAsync_WithEmptyAndFinishedInputQueue_EnquesNothing()
         {
             ConcurrentQueue<string> readerQueue = new ConcurrentQueue<string>();
             ConcurrentQueue<SingleDayStock> dataToWriteQueue = new ConcurrentQueue<SingleDayStock>();
@@ -93,7 +93,7 @@ namespace CsvImporter.Test.ProcessorsTests
                                                               readerFinishedReading,
                                                               finishedEqueuingDataForWriter);
 
-            Task t = Task.Run(() => processor.StartProcessingAndEnqueuingDataAsync());
+            Task t = Task.Run(() => processor.ProcessAndEnqueueDataAsync());
             t.Wait();
 
             Assert.True(finishedEqueuingDataForWriter.Event);
@@ -101,7 +101,7 @@ namespace CsvImporter.Test.ProcessorsTests
         }
 
         [Fact]
-        public void StartProcessingAndEnqueuingDataAsync_WithEmptyAndDelayedFinishedInputQueue_EnquesNothingAndWaitsForFinishedFlag()
+        public void ProcessAndEnqueueDataAsync_WithEmptyAndDelayedFinishedInputQueue_EnquesNothingAndWaitsForFinishedFlag()
         {
             ConcurrentQueue<string> readerQueue = new ConcurrentQueue<string>();
             ConcurrentQueue<SingleDayStock> dataToWriteQueue = new ConcurrentQueue<SingleDayStock>();
@@ -114,7 +114,7 @@ namespace CsvImporter.Test.ProcessorsTests
             Stopwatch timeMeassure = new Stopwatch();
 
             // Task that executes the processor
-            Task t1 = Task.Run(async () => { timeMeassure.Start(); await processor.StartProcessingAndEnqueuingDataAsync(); });
+            Task t1 = Task.Run(async () => { timeMeassure.Start(); await processor.ProcessAndEnqueueDataAsync(); });
             // Task that marks the readerFinishedReading event after 5 seconds
             Task t2 = Task.Run(async () => { await Task.Delay(5000); readerFinishedReading.Event = true; });
 
@@ -128,7 +128,7 @@ namespace CsvImporter.Test.ProcessorsTests
         }
 
         [Fact]
-        public void StartProcessingAndEnqueuingDataAsync_WithDataInInputQueue_EnquesData()
+        public void ProcessAndEnqueueDataAsync_WithDataInInputQueue_EnquesData()
         {
             ConcurrentQueue<string> readerQueue = new ConcurrentQueue<string>();
             readerQueue.Enqueue(_testFileRows[1]);
@@ -141,7 +141,7 @@ namespace CsvImporter.Test.ProcessorsTests
                                                               readerFinishedReading,
                                                               finishedEqueuingDataForWriter);
 
-            Task t = Task.Run(() => processor.StartProcessingAndEnqueuingDataAsync());
+            Task t = Task.Run(() => processor.ProcessAndEnqueueDataAsync());
             t.Wait();
 
             Assert.True(finishedEqueuingDataForWriter.Event);

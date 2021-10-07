@@ -57,7 +57,7 @@ namespace CsvImporter.Controllers.Processors
         /// the data read in a <see cref="ConcurrentQueue{SingleDayStock}"/> to feed the writer
         /// </summary>
         /// <returns>No object or value is returned by this method when it completes</returns>
-        public async Task StartProcessingAndEnqueuingDataAsync()
+        public async Task ProcessAndEnqueueDataAsync()
         {
             while (!(_readerFinishedReading.Event && _readerQueue.IsEmpty))
             {
