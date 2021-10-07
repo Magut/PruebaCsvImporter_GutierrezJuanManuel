@@ -13,6 +13,6 @@ namespace CsvImporter.Controllers.Readers
         /// and equeues the rows read in a queue
         /// </summary>
         /// <returns>No object or value is returned by this method when it completes</returns>
-        public Task StartReadingAndEqueuingDataAsync();
+        public Task ReadAndEnqueueDataAsync();
     }
 }

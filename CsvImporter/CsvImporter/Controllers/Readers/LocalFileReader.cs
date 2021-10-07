@@ -15,7 +15,7 @@ namespace CsvImporter.Controllers.Readers
         #region Initialization Fields
 
         private readonly string _localFilePath;
-        private readonly ConcurrentQueue<string> _queue;
+        private readonly ConcurrentQueue<string> _dataReadQueue;
         private readonly Flag _finishedReading;
 
         #endregion
@@ -30,7 +30,7 @@ namespace CsvImporter.Controllers.Readers
             ValidateInitialization(localFilePath, queue);
 
             _localFilePath = localFilePath;
-            _queue = queue;
+            _dataReadQueue = queue;
 
             _finishedReading = new Flag();
             _finishedReading.Event = false;
@@ -47,7 +47,7 @@ namespace CsvImporter.Controllers.Readers
             ValidateInitialization(localFilePath, queue);
 
             _localFilePath = localFilePath;
-            _queue = queue;
+            _dataReadQueue = queue;
 
             if (finishedReading != null)
             {
@@ -70,8 +70,8 @@ namespace CsvImporter.Controllers.Readers
         {
             using (StreamReader streamReader = new StreamReader(_localFilePath))
             {
-                DataReader reader = new DataReader(streamReader, _queue, _finishedReading);
-                await reader.StartReadingAndEqueuingDataAsync();
+                DataReader reader = new DataReader(streamReader, _dataReadQueue, _finishedReading);
+                await reader.ReadAndEnqueueDataAsync();
             }
         }
 

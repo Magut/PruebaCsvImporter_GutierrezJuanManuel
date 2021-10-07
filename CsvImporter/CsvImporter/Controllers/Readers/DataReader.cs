@@ -68,7 +68,7 @@ namespace CsvImporter.Controllers.Readers
         /// and equeues the rows read in the <see cref="ConcurrentQueue{String}"/> setted
         /// </summary>
         /// <returns>No object or value is returned by this method when it completes</returns>
-        public async Task StartReadingAndEqueuingDataAsync()
+        public async Task ReadAndEnqueueDataAsync()
         {
             using (_stream)
             {

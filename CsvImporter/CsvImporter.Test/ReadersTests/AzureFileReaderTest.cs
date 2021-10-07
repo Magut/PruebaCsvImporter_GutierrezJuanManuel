@@ -20,7 +20,7 @@ namespace CsvImporter.Test.ReadersTests
         };
 
         [Fact]
-        public void LAzureFileReaderCtor_WithNullFileUrl_ThrowsArgumentException()
+        public void AzureFileReaderCtor_WithNullFileUrl_ThrowsArgumentException()
         {
             Uri fileUrl = null;
             ConcurrentQueue<string> queue = new ConcurrentQueue<string>();
@@ -29,12 +29,23 @@ namespace CsvImporter.Test.ReadersTests
         }
 
         [Fact]
-        public void LocalFileReaderCtor_WithNullQueue_ThrowsArgumentException()
+        public void AzureFileReaderCtor_WithNullQueue_ThrowsArgumentException()
         {
             Uri fileUrl = new Uri("http://fakeuri");
             ConcurrentQueue<string> queue = null;
 
             Assert.Throws<ArgumentNullException>("queue", () => new AzureFileReader(fileUrl, queue));
+        }
+
+        [Fact]
+        public void AzureFileReaderCtor_WithValidArguments_CreatesInstance()
+        {
+            Uri fileUrl = new Uri("http://fakeuri");
+            ConcurrentQueue<string> queue = new ConcurrentQueue<string>();
+
+            AzureFileReader reader = new AzureFileReader(fileUrl, queue);
+
+            Assert.NotNull(reader);
         }
 
         #region Private Methods used by the Tests

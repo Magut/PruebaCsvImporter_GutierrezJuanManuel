@@ -74,7 +74,7 @@ namespace CsvImporter.Controllers.Readers
                 using (StreamReader streamReader = new StreamReader(stream))
                 {
                     DataReader reader = new DataReader(streamReader, _queue, _finishedReading);
-                    await reader.StartReadingAndEqueuingDataAsync();
+                    await reader.ReadAndEnqueueDataAsync();
                 }
             }
         }

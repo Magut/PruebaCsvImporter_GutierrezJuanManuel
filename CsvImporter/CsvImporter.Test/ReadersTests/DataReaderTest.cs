@@ -44,7 +44,7 @@ namespace CsvImporter.Test.ReadersTests
         }
 
         [Fact]
-        public void StartReadingAsync_FileWithOnlyHeader_DoesNotEnqueuAnything()
+        public void ReadAndEnqueueDataAsync_FileWithOnlyHeader_DoesNotEnqueuAnything()
         {
             string testFilePath = MakeTestFilePath(@".\DataReaderTest_TestFile_WithOnlyHeader.csv");
             CreateTestFile(testFilePath, new string[1] { _testFileRows[0] });
@@ -54,7 +54,7 @@ namespace CsvImporter.Test.ReadersTests
                 var queue = new ConcurrentQueue<string>();
                 var csvDataReader = new DataReader(stream, queue);
 
-                Task t = Task.Run(() => csvDataReader.StartReadingAndEqueuingDataAsync());
+                Task t = Task.Run(() => csvDataReader.ReadAndEnqueueDataAsync());
                 t.Wait();
 
                 Assert.Empty(queue);
@@ -62,7 +62,7 @@ namespace CsvImporter.Test.ReadersTests
         }
 
         [Fact]
-        public void StartReadingAsync_FileWithHeaderAndData_EnqueuesOnlyData()
+        public void ReadAndEnqueueDataAsync_FileWithHeaderAndData_EnqueuesOnlyData()
         {
             string testFilePath = MakeTestFilePath(@".\DataReaderTest_TestFile_WithHeaderAndData.csv");
             CreateTestFile(testFilePath, new string[2] { _testFileRows[0], _testFileRows[1] });
@@ -72,31 +72,12 @@ namespace CsvImporter.Test.ReadersTests
                 var queue = new ConcurrentQueue<string>();
                 var csvDataReader = new DataReader(stream, queue);
 
-                Task t = Task.Run(() => csvDataReader.StartReadingAndEqueuingDataAsync());
+                Task t = Task.Run(() => csvDataReader.ReadAndEnqueueDataAsync());
                 t.Wait();
 
                 Assert.Single(queue);
             }
         }
-
-        // TODO Quitar
-
-        //[Fact]
-        //public void StartReadingAsync_FileWithOnlyData_EnqueuesAllRows()
-        //{
-        //    string testFilePath = MakeTestFilePath(@".\testWithOnlyData.csv");
-        //    CreateTestFile(testFilePath, new string[1] { _testFileRows[3] });
-
-        //    using (var stream = new StreamReader(testFilePath))
-        //    {
-        //        var queue = new ConcurrentQueue<string>();
-        //        var csvDataReader = new DataReader(stream, queue);
-
-        //        csvDataReader.StartReadingAndEqueuingDataAsync();
-
-        //        Assert.Single(queue);
-        //    }
-        //}
 
         #region Private Methods used by the Tests
 
