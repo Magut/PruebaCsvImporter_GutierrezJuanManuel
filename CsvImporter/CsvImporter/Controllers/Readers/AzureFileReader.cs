@@ -86,7 +86,7 @@ namespace CsvImporter.Controllers.Readers
             {
                 using (StreamReader streamReader = Factory.StreamReaderCreator(stream))
                 {
-                    DataReader reader = Factory.DataReaderCreator(streamReader, _queue, _finishedReading);
+                    IDataReader reader = Factory.DataReaderCreator(streamReader, _queue, _finishedReading);
                     await reader.ReadAndEnqueueDataAsync(cancellationToken);
                 }
             }
