@@ -5,6 +5,7 @@ using Dapper;
 using System.Diagnostics;
 using System.Threading.Tasks;
 using System.Collections.Concurrent;
+using System.Threading;
 
 namespace CsvImporter.Controllers.Writers
 {
@@ -17,9 +18,11 @@ namespace CsvImporter.Controllers.Writers
 
         private const string Query_StockHistory_InsertSingleRow = "INSERT INTO StockHistory (PointOfSale, Product, Date, Stock) Values (@PointOfSale, @Product, @Date, @Stock);";
         private const string Query_StockHistory_DeleteAllRows = "DELETE StockHistory;";
+        private const string Query_StockHistory_DeleteNRows = "DELETE TOP (@MaxRowsToDelete) FROM StockTest.dbo.StockHistory;";
         private const string StoredProcedure_StockHistory_InsertCompressedData = "dbo.StockHistory_InsertCompressedData";
 
-        private const int MiliSecondsBetweenDequeTries = 5;
+        private const int MaxRowsToDeleteInASingleExecutionDefault = 1000;
+        private const int MiliSecondsBetweenDequeTriesDefault = 5;
 
         #endregion
 
@@ -29,6 +32,24 @@ namespace CsvImporter.Controllers.Writers
         private readonly ConcurrentQueue<SingleDayStock> _dataProcessedQueue;
         private readonly Flag _processorFinishedProcessing;
         private readonly Flag _finishedWriting;
+
+        #endregion
+
+        #region Settings
+
+        private int _maxRowsToDeleteInASingleExecution = MaxRowsToDeleteInASingleExecutionDefault;
+        private int _miliSecondsBetweenDequeTries = MiliSecondsBetweenDequeTriesDefault;
+
+        public int MaxRowsToDeleteInASingleExecution
+        {
+            get => _maxRowsToDeleteInASingleExecution;
+            set => _maxRowsToDeleteInASingleExecution = value;
+        }
+        public int MiliSecondsBetweenDequeTries
+        {
+            get => _miliSecondsBetweenDequeTries;
+            set => _miliSecondsBetweenDequeTries = value;
+        }
 
         #endregion
 
@@ -56,20 +77,32 @@ namespace CsvImporter.Controllers.Writers
         /// It starts writing in the target the data located in the input queue
         /// </summary>
         /// <returns>No object or value is returned by this method when it completes</returns>
-        public async Task StartWritingDataAsync()
+        public async Task WriteImportedDataAsync()
         {
-            while (!(_processorFinishedProcessing.Event && _dataProcessedQueue.IsEmpty))
+            CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
+            CancellationToken cancellationToken = cancellationTokenSource.Token;
+            await WriteImportedDataAsync(cancellationToken);
+        }
+
+        /// <summary>
+        /// It starts writing in the target the data located in the input queue
+        /// </summary>
+        /// <param name="cancellationToken">Token for cancellation</param>
+        /// <returns>No object or value is returned by this method when it completes</returns>
+        public async Task WriteImportedDataAsync(CancellationToken cancellationToken)
+        {
+            while (!cancellationToken.IsCancellationRequested && !(_processorFinishedProcessing.Event && _dataProcessedQueue.IsEmpty))
             {
                 // Checks if there is items in the input queue
                 if (_dataProcessedQueue.IsEmpty)
                 {
-                    await Task.Delay(MiliSecondsBetweenDequeTries);
+                    await Task.Delay(MiliSecondsBetweenDequeTries, cancellationToken);
                     continue;
                 }
 
-                SingleDayStock singleDayStock = await GetItemFromReaderQueueAsync();
+                SingleDayStock singleDayStock = await GetItemFromReaderQueueAsync(cancellationToken);
                 if (singleDayStock is not null)
-                    await InsertAsync(singleDayStock);
+                    await InsertAsync(singleDayStock, cancellationToken);
             }
 
             _finishedWriting.Event = true;
@@ -82,14 +115,27 @@ namespace CsvImporter.Controllers.Writers
         /// <returns>No object or value is returned by this method when it completes</returns>
         public async Task InsertAsync(IDayStock data)
         {
+            CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
+            CancellationToken cancellationToken = cancellationTokenSource.Token;
+            await InsertAsync(data, cancellationToken);
+        }
+
+        /// <summary>
+        /// Inserts asynchrounously row/s to the StockHistory table
+        /// </summary>
+        /// <param name="data">Row/s with the data</param>
+        /// <param name="cancellationToken">Token for cancellation</param>
+        /// <returns>No object or value is returned by this method when it completes</returns>
+        public async Task InsertAsync(IDayStock data, CancellationToken cancellationToken)
+        {
             using (IDbConnection connection = DatabaseHelper.CreateDbConnection(_connectionStringName))
             {
                 try
                 {
                     if (data is SingleDayStock d)
-                        await InsertDataAsync(connection, d);
+                        await InsertDataAsync(connection, d, cancellationToken);
                     if (data is MultipleDaysStock cD)
-                        await InsertDataAsync(connection, cD);
+                        await InsertDataAsync(connection, cD, cancellationToken);
                 }
                 catch (Exception ex)
                 {
@@ -104,12 +150,28 @@ namespace CsvImporter.Controllers.Writers
         /// <returns>No object or value is returned by this method when it completes</returns>
         public async Task DeleteAllAsync()
         {
+            CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
+            CancellationToken cancellationToken = cancellationTokenSource.Token;
+            await DeleteAllAsync(cancellationToken);
+        }
+
+        /// <summary>
+        /// Deletes all stock rows asynchrounously in the target
+        /// </summary>
+        /// <param name="cancellationToken">Token for cancellation</param>
+        /// <returns>No object or value is returned by this method when it completes</returns>
+        public async Task DeleteAllAsync(CancellationToken cancellationToken)
+        {
             using (IDbConnection connection = DatabaseHelper.CreateDbConnection(_connectionStringName))
             {
                 try
                 {
-                    int affectedRows = await connection.ExecuteAsync(Query_StockHistory_DeleteAllRows);
-                    Debug.WriteLine($"DeleteAllAsync -> AffectedRows: {affectedRows}");
+                    int affectedRows;
+                    do
+                    {
+                        affectedRows = await connection.ExecuteAsync(Query_StockHistory_DeleteNRows, new { MaxRowsToDelete = MaxRowsToDeleteInASingleExecution });
+                        Debug.WriteLine($"DeleteAllAsync -> AffectedRows: {affectedRows}");
+                    } while (affectedRows > 0);
                 }
                 catch (Exception ex)
                 {
@@ -122,10 +184,25 @@ namespace CsvImporter.Controllers.Writers
         /// Inserts one row to StockHistory table
         /// </summary>
         /// <param name="connection"><see cref="IDbConnection"/>that holds the session to do the operation</param>
-        /// <param name="data"><see cref="SingleDayStock"/>Stock data</param>
-        private static async Task InsertDataAsync(IDbConnection connection, SingleDayStock data)
+        /// <param name="singleDayStock"><see cref="SingleDayStock"/>Stock data</param>
+        /// <returns>No object or value is returned by this method when it completes</returns>
+        private static async Task InsertDataAsync(IDbConnection connection, SingleDayStock singleDayStock)
         {
-            int affectedRows = await connection.ExecuteAsync(Query_StockHistory_InsertSingleRow, data);
+            CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
+            CancellationToken cancellationToken = cancellationTokenSource.Token;
+            await InsertDataAsync(connection, singleDayStock, cancellationToken);
+        }
+
+        /// <summary>
+        /// Inserts one row to StockHistory table
+        /// </summary>
+        /// <param name="connection"><see cref="IDbConnection"/>that holds the session to do the operation</param>
+        /// <param name="singleDayStock"><see cref="SingleDayStock"/>Stock data</param>
+        /// <param name="cancellationToken">Token for cancellation</param>
+        /// <returns>No object or value is returned by this method when it completes</returns>
+        private static async Task InsertDataAsync(IDbConnection connection, SingleDayStock singleDayStock, CancellationToken cancellationToken)
+        {
+            int affectedRows = await connection.ExecuteAsync(Query_StockHistory_InsertSingleRow, singleDayStock);
             Debug.WriteLine($"InsertDataAsync<SingleDayStock> -> AffectedRows: {affectedRows}");
         }
 
@@ -133,10 +210,25 @@ namespace CsvImporter.Controllers.Writers
         /// Inserts one or more rows to StockHistory table
         /// </summary>
         /// <param name="connection"><see cref="IDbConnection"/>that holds the session to do the operation</param>
-        /// <param name="compressedData"><see cref="CompressedData"/>Stock data in a range of days</param>
-        private static async Task InsertDataAsync(IDbConnection connection, MultipleDaysStock compressedData)
+        /// <param name="multipleDaysStock"><see cref="CompressedData"/>Stock data in a range of days</param>
+        /// <returns>No object or value is returned by this method when it completes</returns>
+        private static async Task InsertDataAsync(IDbConnection connection, MultipleDaysStock multipleDaysStock)
         {
-            int affectedRows = await connection.ExecuteAsync(StoredProcedure_StockHistory_InsertCompressedData, compressedData);
+            CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
+            CancellationToken cancellationToken = cancellationTokenSource.Token;
+            await InsertDataAsync(connection, multipleDaysStock, cancellationToken);
+        }
+
+        /// <summary>
+        /// Inserts one or more rows to StockHistory table
+        /// </summary>
+        /// <param name="connection"><see cref="IDbConnection"/>that holds the session to do the operation</param>
+        /// <param name="multipleDaysStock"><see cref="CompressedData"/>Stock data in a range of days</param>
+        /// <param name="cancellationToken">Token for cancellation</param>
+        /// <returns>No object or value is returned by this method when it completes</returns>
+        private static async Task InsertDataAsync(IDbConnection connection, MultipleDaysStock multipleDaysStock, CancellationToken cancellationToken)
+        {
+            int affectedRows = await connection.ExecuteAsync(StoredProcedure_StockHistory_InsertCompressedData, multipleDaysStock);
             Debug.WriteLine($"InsertDataAsync<MultipleDayStock> -> AffectedRows: {affectedRows}");
         }
 
@@ -146,9 +238,21 @@ namespace CsvImporter.Controllers.Writers
         /// <returns><see cref="SingleDayStock"/> with the data</returns>
         private async Task<SingleDayStock> GetItemFromReaderQueueAsync()
         {
-            SingleDayStock stock;
+            CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
+            CancellationToken cancellationToken = cancellationTokenSource.Token;
+            return await GetItemFromReaderQueueAsync(cancellationToken);
+        }
 
-            while (!_dataProcessedQueue.TryDequeue(out stock))
+        /// <summary>
+        /// Tries until it get a valid stock from the processor queue
+        /// </summary>
+        /// <param name="cancellationToken">Token for cancellation</param>
+        /// <returns><see cref="SingleDayStock"/> with the data</returns>
+        private async Task<SingleDayStock> GetItemFromReaderQueueAsync(CancellationToken cancellationToken)
+        {
+            SingleDayStock stock = null;
+
+            while (!cancellationToken.IsCancellationRequested && !_dataProcessedQueue.TryDequeue(out stock))
             {
                 Debug.WriteLine($"No pude desencolar, intentaré nuevamente luego de {MiliSecondsBetweenDequeTries} mseg.");
                 await Task.Delay(MiliSecondsBetweenDequeTries);
