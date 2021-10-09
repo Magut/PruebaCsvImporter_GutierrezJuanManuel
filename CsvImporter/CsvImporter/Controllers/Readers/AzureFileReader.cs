@@ -1,7 +1,9 @@
 ﻿using CsvImporter.Models;
 using System;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.IO;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -82,13 +84,20 @@ namespace CsvImporter.Controllers.Readers
         /// <returns>No object or value is returned by this method when it completes</returns>
         public async Task ReadFileAndEnqueueDataAsync(CancellationToken cancellationToken)
         {
-            using (Stream stream = await Factory.BlobClientCreator(_fileUrl).OpenReadAsync(cancellationToken: cancellationToken))
+            try
             {
-                using (StreamReader streamReader = Factory.StreamReaderCreator(stream))
+                using (Stream stream = await Factory.BlobClientCreator(_fileUrl).OpenReadAsync(cancellationToken: cancellationToken))
                 {
-                    IDataReader reader = Factory.DataReaderCreator(streamReader, _queue, _finishedReading);
-                    await reader.ReadAndEnqueueDataAsync(cancellationToken);
+                    using (StreamReader streamReader = Factory.StreamReaderCreator(stream))
+                    {
+                        IDataReader reader = Factory.DataReaderCreator(streamReader, _queue, _finishedReading);
+                        await reader.ReadAndEnqueueDataAsync(cancellationToken);
+                    }
                 }
+            }
+            catch (OperationCanceledException opCanceledEx)
+            {
+                Debug.WriteLine($"{MethodBase.GetCurrentMethod().Name} => Operation was cancelled successfully. Message: {opCanceledEx.Message}");
             }
         }
 
