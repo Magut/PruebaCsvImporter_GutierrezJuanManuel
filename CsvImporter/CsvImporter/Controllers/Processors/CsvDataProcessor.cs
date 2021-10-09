@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -15,9 +16,8 @@ namespace CsvImporter.Controllers.Processors
     {
         # region Constants for the operation
         
-        private const int MiliSecondsBetweenDequeTries = 5;
-        private const int MiliSecondsBetweenQueueSpaceChecks = 5;
-        private const int MaxDataToWriteQueueItems = 1000;
+        private const int MiliSecondsBetweenQueueChecks = 3;
+        private const int MaxDataToWriteQueueItems = 10000;
 
         #endregion
 
@@ -73,28 +73,30 @@ namespace CsvImporter.Controllers.Processors
         /// <returns>No object or value is returned by this method when it completes</returns>
         public async Task ProcessAndEnqueueDataAsync(CancellationToken cancellationToken)
         {
-            while (!cancellationToken.IsCancellationRequested && !(_readerFinishedReading.Event && _readerQueue.IsEmpty))
+            try
             {
-                // Checks if there is space in the output queue
-                if (_dataToWriteQueue.Count > MaxDataToWriteQueueItems)
+                while (!cancellationToken.IsCancellationRequested && !(_readerFinishedReading.Event && _readerQueue.IsEmpty))
                 {
-                    Debug.WriteLine("Se llenó la cola de datos procesados y aún no insertados en BD. Espero y vuelvo a chequeuar.");
-                    await Task.Delay(MiliSecondsBetweenQueueSpaceChecks, cancellationToken);
-                    continue;
-                }
+                    // Checks if there is space in the output queue and if there is something to dequeue
+                    if (_dataToWriteQueue.Count > MaxDataToWriteQueueItems || _readerQueue.IsEmpty)
+                    {
+                        Debug.WriteLine(_dataToWriteQueue.Count > MaxDataToWriteQueueItems ?
+                                        "Se llenó la cola de datos procesados y aún no insertados en BD. Espero y vuelvo a chequeuar." :
+                                        "La cola está vacía. Espero a que se inserte algún registro.");
+                        await Task.Delay(MiliSecondsBetweenQueueChecks, cancellationToken);
+                        continue;
+                    }
 
-                // Checks if there is items in the input queue
-                if (_readerQueue.IsEmpty)
-                {
-                    await Task.Delay(MiliSecondsBetweenDequeTries, cancellationToken);
-                    continue;
+                    SingleDayStock singleDayStock = GetItemFromReaderQueue();
+                    if (singleDayStock is not null)
+                        _dataToWriteQueue.Enqueue(singleDayStock);
                 }
-
-                SingleDayStock singleDayStock = await GetItemFromReaderQueueAsync(cancellationToken);
-                if (singleDayStock is not null)
-                    _dataToWriteQueue.Enqueue(singleDayStock);
             }
-            
+            catch (OperationCanceledException opCanceledEx)
+            {
+                Debug.WriteLine($"{MethodBase.GetCurrentMethod().Name} => Operation was cancelled successfully. Message: {opCanceledEx.Message}");
+            }
+
             _finishedEqueuingDataForWriter.Event = true;
         }
 
@@ -103,17 +105,25 @@ namespace CsvImporter.Controllers.Processors
         /// and returns it parsed to SingleDayStock
         /// </summary>
         /// <returns><see cref="SingleDayStock"/> with the row data parsed</returns>
-        private async Task<SingleDayStock> GetItemFromReaderQueueAsync(CancellationToken cancellationToken)
+        private  SingleDayStock GetItemFromReaderQueue()
         {
             string csvRow = string.Empty;
 
-            while(!cancellationToken.IsCancellationRequested && !_readerQueue.TryDequeue(out csvRow))
+            try
             {
-                Debug.WriteLine($"No pude desencolar, intentaré nuevamente luego de {MiliSecondsBetweenDequeTries} mseg.");
-                await Task.Delay(MiliSecondsBetweenDequeTries, cancellationToken);
+                if (!_readerQueue.TryDequeue(out csvRow))
+                {
+                    Debug.WriteLine($"No pude desencolar.");
+                    return null;
+                }
+            }
+            catch (OperationCanceledException opCanceledEx)
+            {
+                Debug.WriteLine($"{MethodBase.GetCurrentMethod().Name} => Operation was cancelled successfully. Message: {opCanceledEx.Message}");
+                return null;
             }
 
-            if (cancellationToken.IsCancellationRequested)
+            if (csvRow == null || String.IsNullOrWhiteSpace(csvRow))
                 return null;
             else
                 return new SingleDayStock(csvRow);
