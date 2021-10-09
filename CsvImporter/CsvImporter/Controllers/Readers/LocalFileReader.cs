@@ -1,7 +1,9 @@
 ﻿using CsvImporter.Models;
 using System;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.IO;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -82,10 +84,17 @@ namespace CsvImporter.Controllers.Readers
         /// <returns>No object or value is returned by this method when it completes</returns>
         public async Task ReadFileAndEnqueueDataAsync(CancellationToken cancellationToken)
         {
-            using (StreamReader streamReader = Factory.StreamReaderCreator(_localFilePath))
+            try
             {
-                IDataReader reader = Factory.DataReaderCreator(streamReader, _dataReadQueue, _finishedReading);
-                await reader.ReadAndEnqueueDataAsync();
+                using (StreamReader streamReader = Factory.StreamReaderCreator(_localFilePath))
+                {
+                    IDataReader reader = Factory.DataReaderCreator(streamReader, _dataReadQueue, _finishedReading);
+                    await reader.ReadAndEnqueueDataAsync(cancellationToken);
+                }
+            }
+            catch (OperationCanceledException opCanceledEx)
+            {
+                Debug.WriteLine($"{MethodBase.GetCurrentMethod().Name} => Operation was cancelled successfully. Message: {opCanceledEx.Message}");
             }
         }
 
