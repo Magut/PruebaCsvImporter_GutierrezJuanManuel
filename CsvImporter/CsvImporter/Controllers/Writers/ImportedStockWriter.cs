@@ -6,6 +6,8 @@ using System.Diagnostics;
 using System.Threading.Tasks;
 using System.Collections.Concurrent;
 using System.Threading;
+using System.Reflection;
+using System.Data.SqlClient;
 
 namespace CsvImporter.Controllers.Writers
 {
@@ -16,13 +18,13 @@ namespace CsvImporter.Controllers.Writers
     {
         #region Constants for the operation
 
-        private const string Query_StockHistory_InsertSingleRow = "INSERT INTO StockHistory (PointOfSale, Product, Date, Stock) Values (@PointOfSale, @Product, @Date, @Stock);";
+        private const string Query_StockHistory_InsertSingleRow = "INSERT INTO StockHistory ([PointOfSale], [Product], [Date], [Stock]) Values (@PointOfSale, @Product, @Date, @Stock);";
         private const string Query_StockHistory_DeleteAllRows = "DELETE StockHistory;";
-        private const string Query_StockHistory_DeleteNRows = "DELETE TOP (@MaxRowsToDelete) FROM StockTest.dbo.StockHistory;";
+        private const string Query_StockHistory_DeleteNRows = "DELETE TOP (@MaxRowsToDelete) FROM Stock.dbo.StockHistory;";
         private const string StoredProcedure_StockHistory_InsertCompressedData = "dbo.StockHistory_InsertCompressedData";
 
-        private const int MaxRowsToDeleteInASingleExecutionDefault = 1000;
-        private const int MiliSecondsBetweenDequeTriesDefault = 5;
+        private const int MaxRowsToDeleteInASingleExecutionDefault = 100000;
+        private const int MiliSecondsBetweenDequeTriesDefault = 3;
 
         #endregion
 
@@ -91,18 +93,25 @@ namespace CsvImporter.Controllers.Writers
         /// <returns>No object or value is returned by this method when it completes</returns>
         public async Task WriteImportedDataAsync(CancellationToken cancellationToken)
         {
-            while (!cancellationToken.IsCancellationRequested && !(_processorFinishedProcessing.Event && _dataProcessedQueue.IsEmpty))
+            try
             {
-                // Checks if there is items in the input queue
-                if (_dataProcessedQueue.IsEmpty)
+                while (!cancellationToken.IsCancellationRequested && !(_processorFinishedProcessing.Event && _dataProcessedQueue.IsEmpty))
                 {
-                    await Task.Delay(MiliSecondsBetweenDequeTries, cancellationToken);
-                    continue;
-                }
+                    // Checks if there is items in the input queue
+                    if (_dataProcessedQueue.IsEmpty)
+                    {
+                        await Task.Delay(MiliSecondsBetweenDequeTries, cancellationToken);
+                        continue;
+                    }
 
-                SingleDayStock singleDayStock = await GetItemFromReaderQueueAsync(cancellationToken);
-                if (singleDayStock is not null)
-                    await InsertAsync(singleDayStock, cancellationToken);
+                    SingleDayStock singleDayStock = await GetItemFromReaderQueueAsync(cancellationToken);
+                    if (singleDayStock is not null)
+                        await InsertAsync(singleDayStock, cancellationToken);
+                }
+            }
+            catch (OperationCanceledException opCanceledEx)
+            {
+                Debug.WriteLine($"{MethodBase.GetCurrentMethod().Name} => Operation was cancelled successfully. Message: {opCanceledEx.Message}");
             }
 
             _finishedWriting.Event = true;
@@ -128,19 +137,26 @@ namespace CsvImporter.Controllers.Writers
         /// <returns>No object or value is returned by this method when it completes</returns>
         public async Task InsertAsync(IDayStock data, CancellationToken cancellationToken)
         {
-            using (IDbConnection connection = DatabaseHelper.CreateDbConnection(_connectionStringName))
+            try
             {
-                try
+                using (IDbConnection connection = DatabaseHelper.CreateDbConnection(_connectionStringName))
                 {
-                    if (data is SingleDayStock d)
-                        await InsertDataAsync(connection, d, cancellationToken);
-                    if (data is MultipleDaysStock cD)
-                        await InsertDataAsync(connection, cD, cancellationToken);
+                    try
+                    {
+                        if (data is SingleDayStock d)
+                            await InsertDataAsync(connection, d, cancellationToken);
+                        if (data is MultipleDaysStock cD)
+                            await InsertDataAsync(connection, cD, cancellationToken);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"ERROR! InsertAsync -> An Exception was thrown with the message: {ex.Message}");
+                    }
                 }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"ERROR! InsertAsync -> An Exception was thrown with the message: {ex.Message}");
-                }
+            }
+            catch (OperationCanceledException opCanceledEx)
+            {
+                Debug.WriteLine($"{MethodBase.GetCurrentMethod().Name} => Operation was cancelled successfully. Message: {opCanceledEx.Message}");
             }
         }
 
@@ -162,21 +178,31 @@ namespace CsvImporter.Controllers.Writers
         /// <returns>No object or value is returned by this method when it completes</returns>
         public async Task DeleteAllAsync(CancellationToken cancellationToken)
         {
-            using (IDbConnection connection = DatabaseHelper.CreateDbConnection(_connectionStringName))
+            try
             {
-                try
+                using (IDbConnection connection = DatabaseHelper.CreateDbConnection(_connectionStringName))
                 {
-                    int affectedRows;
-                    do
+                    try
                     {
-                        affectedRows = await connection.ExecuteAsync(Query_StockHistory_DeleteNRows, new { MaxRowsToDelete = MaxRowsToDeleteInASingleExecution });
-                        Debug.WriteLine($"DeleteAllAsync -> AffectedRows: {affectedRows}");
-                    } while (affectedRows > 0);
+                        int affectedRows = 0;
+                        do
+                        {
+                            //affectedRows = connection.Execute("DELETE Stock.dbo.StockHistory;");
+                            //affectedRows = await connection.ExecuteAsync("DELETE Stock.dbo.StockHistory;");
+                            affectedRows = connection.Execute(Query_StockHistory_DeleteNRows, new { MaxRowsToDelete = MaxRowsToDeleteInASingleExecution });
+                            //affectedRows = await connection.ExecuteAsync(Query_StockHistory_DeleteNRows, new { MaxRowsToDelete = MaxRowsToDeleteInASingleExecution });
+                            Debug.WriteLine($"{MethodBase.GetCurrentMethod().Name} -> AffectedRows: {affectedRows}");
+                        } while (affectedRows > 0);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"ERROR! {MethodBase.GetCurrentMethod().Name} -> An Exception was thrown with the message: {ex.Message}");
+                    }
                 }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"ERROR! DeleteAllAsync -> An Exception was thrown with the message: {ex.Message}");
-                }
+            }
+            catch (OperationCanceledException opCanceledEx)
+            {
+                Debug.WriteLine($"{MethodBase.GetCurrentMethod().Name} => Operation was cancelled successfully. Message: {opCanceledEx.Message}");
             }
         }
 
@@ -202,8 +228,20 @@ namespace CsvImporter.Controllers.Writers
         /// <returns>No object or value is returned by this method when it completes</returns>
         private static async Task InsertDataAsync(IDbConnection connection, SingleDayStock singleDayStock, CancellationToken cancellationToken)
         {
-            int affectedRows = await connection.ExecuteAsync(Query_StockHistory_InsertSingleRow, singleDayStock);
-            Debug.WriteLine($"InsertDataAsync<SingleDayStock> -> AffectedRows: {affectedRows}");
+            try
+            {
+                //int affectedRows = await connection.ExecuteAsync(Query_StockHistory_InsertSingleRow, singleDayStock);
+                int affectedRows = connection.Execute(Query_StockHistory_InsertSingleRow, singleDayStock);
+                Debug.WriteLine($"InsertDataAsync<SingleDayStock> -> AffectedRows: {affectedRows}");
+            }
+            catch (OperationCanceledException opCanceledEx)
+            {
+                Debug.WriteLine($"{MethodBase.GetCurrentMethod().Name} => Operation was cancelled successfully. Message: {opCanceledEx.Message}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"ERROR! {MethodBase.GetCurrentMethod().Name} -> An Exception was thrown with the message: {ex.Message}");
+            }
         }
 
         /// <summary>
@@ -228,8 +266,15 @@ namespace CsvImporter.Controllers.Writers
         /// <returns>No object or value is returned by this method when it completes</returns>
         private static async Task InsertDataAsync(IDbConnection connection, MultipleDaysStock multipleDaysStock, CancellationToken cancellationToken)
         {
-            int affectedRows = await connection.ExecuteAsync(StoredProcedure_StockHistory_InsertCompressedData, multipleDaysStock);
-            Debug.WriteLine($"InsertDataAsync<MultipleDayStock> -> AffectedRows: {affectedRows}");
+            try
+            {
+                int affectedRows = await connection.ExecuteAsync(StoredProcedure_StockHistory_InsertCompressedData, multipleDaysStock);
+                Debug.WriteLine($"{MethodBase.GetCurrentMethod().Name}<MultipleDayStock> -> AffectedRows: {affectedRows}");
+            }
+            catch (OperationCanceledException opCanceledEx)
+            {
+                Debug.WriteLine($"{MethodBase.GetCurrentMethod().Name} => Operation was cancelled successfully. Message: {opCanceledEx.Message}");
+            }
         }
 
         /// <summary>
@@ -252,11 +297,18 @@ namespace CsvImporter.Controllers.Writers
         {
             SingleDayStock stock = null;
 
-            while (!cancellationToken.IsCancellationRequested && !_dataProcessedQueue.TryDequeue(out stock))
+            try
             {
-                Debug.WriteLine($"No pude desencolar, intentaré nuevamente luego de {MiliSecondsBetweenDequeTries} mseg.");
-                await Task.Delay(MiliSecondsBetweenDequeTries);
-                return null;
+                while (!cancellationToken.IsCancellationRequested && !_dataProcessedQueue.TryDequeue(out stock))
+                {
+                    Debug.WriteLine($"No pude desencolar, intentaré nuevamente luego de {MiliSecondsBetweenDequeTries} mseg.");
+                    await Task.Delay(MiliSecondsBetweenDequeTries);
+                    return null;
+                }
+            }
+            catch (OperationCanceledException opCanceledEx)
+            {
+                Debug.WriteLine($"{MethodBase.GetCurrentMethod().Name} => Operation was cancelled successfully. Message: {opCanceledEx.Message}");
             }
 
             return stock;
