@@ -2,6 +2,8 @@
 using System;
 using System.Collections.Concurrent;
 using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 using Xunit;
 
 namespace CsvImporter.Test.ReadersTests
@@ -48,46 +50,21 @@ namespace CsvImporter.Test.ReadersTests
             Assert.NotNull(reader);
         }
 
-        #region Private Methods used by the Tests
-
-        /// <summary>
-        /// It returns the Full path for a test file
-        /// </summary>
-        /// <param name="fileName">File Name</param>
-        /// <returns>Full path of the test file</returns>
-        private string MakeTestFilePath(string fileName)
+        [Fact]
+        public void ReadFile_TestFileWithCancellation_EnqueuesData()
         {
-            string currentDirectory = AppDomain.CurrentDomain.BaseDirectory;
-            string newPath = Path.Combine(currentDirectory, fileName);
-            return Path.GetFullPath(newPath);
+            Uri testFileUrl = new Uri(@"https://storage10082020.blob.core.windows.net/y9ne9ilzmfld/Stock.CSV");
+            ConcurrentQueue<string> queue = new ConcurrentQueue<string>();
+            // Initializes a CancellationToken that will throw a cancellation after 4 seconds
+            CancellationTokenSource cancellSource = new CancellationTokenSource();
+            CancellationToken cancellationToken = cancellSource.Token;
+            AzureFileReader reader = new AzureFileReader(testFileUrl, queue);
+
+            Task tRead = Task.Run(async () => await reader.ReadFileAndEnqueueDataAsync(cancellationToken), cancellationToken);
+            Task tCancell = Task.Run(() => { Thread.Sleep(5000); cancellSource.Cancel(); });
+            Task.WaitAll(new Task[] { tRead, tCancell });
+
+            Assert.NotEmpty(queue);
         }
-
-        /// <summary>
-        /// It creates a Test CSV file
-        /// </summary>
-        /// <param name="path">Path of the test file</param>
-        /// <param name="rowsToInsert">Rows to insert (the first one can be the header)</param>
-        private void CreateTestFile(string path, string[] rowsToInsert)
-        {
-            if (File.Exists(path))
-            {
-                File.Delete(path);
-            }
-
-            using (var stream = File.Create(path))
-            {
-                ;
-            }
-
-            using (StreamWriter streamWriter = new StreamWriter(path))
-            {
-                foreach (string row in rowsToInsert)
-                {
-                    streamWriter.WriteLine(row);
-                }
-            }
-        }
-
-        #endregion
     }
 }
