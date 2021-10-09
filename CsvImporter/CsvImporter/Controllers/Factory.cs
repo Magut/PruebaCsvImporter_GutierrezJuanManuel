@@ -57,6 +57,51 @@ namespace CsvImporter.Controllers
         }
 
         /// <summary>
+        /// Creates <see cref="IFileReader"/> instance
+        /// </summary>
+        /// <param name="localFilePath">Path of the local file to be read</param>
+        /// <param name="queue"><see cref="ConcurrentQueue{String}"/> to enqueue the data for the processor</param>
+        /// <param name="finishedReading">Flag to indicate to the caller that it finished reading the file</param>
+        /// <returns><see cref="IFileReader"/> instance</returns>
+        public static IFileReader LocalFileReaderCreator(string localFilePath, ConcurrentQueue<string> queue, Flag finishedReading)
+        {
+            return new LocalFileReader(localFilePath, queue, finishedReading);
+        }
+
+        /// <summary>
+        /// Creates <see cref="IFileReader"/> instance
+        /// </summary>
+        /// <param name="fileUrl">Url of the Azure file to be read</param>
+        /// <param name="queue"><see cref="ConcurrentQueue{String}"/> to enqueue the data for the processor</param>
+        /// <param name="finishedReading">Flag to indicate to the caller that it finished reading the file</param>
+        /// <returns><see cref="IFileReader"/> instance</returns>
+        public static IFileReader AzureFileReaderCreator(Uri fileUrl, ConcurrentQueue<string> queue, Flag finishedReading)
+        {
+            return new AzureFileReader(fileUrl, queue, finishedReading);
+        }
+
+        /// <summary>
+        /// Creates <see cref="IFileReader"/> instance
+        /// </summary>
+        /// <param name="localFilePath">Path of the local file to be read (when the file is local)</param>
+        /// <param name="fileUrl">Url of the Azure file to be read (when it reads from Azure)</param>
+        /// <param name="queue"><see cref="ConcurrentQueue{String}"/> to enqueue the data for the processor</param>
+        /// <param name="finishedReading">Flag to indicate to the caller that it finished reading the file</param>
+        /// <returns><see cref="IFileReader"/> instance</returns>
+        public static IFileReader FileReaderCreator(InputFileLocation inputFileLocation, string localFilePath, Uri fileUrl, ConcurrentQueue<string> queue, Flag finishedReading)
+        {
+            switch (inputFileLocation)
+            {
+                case InputFileLocation.Localhost:
+                    return Factory.LocalFileReaderCreator(localFilePath, queue, finishedReading);
+                case InputFileLocation.Azure:
+                    return Factory.AzureFileReaderCreator(fileUrl, queue, finishedReading);
+                default:
+                    return null;
+            }
+        }
+
+        /// <summary>
         /// Creates <see cref="ICsvDataProcessor"/> instance
         /// </summary>
         /// <param name="dataReadQueue">Queue with data read (to be processed)</param>
