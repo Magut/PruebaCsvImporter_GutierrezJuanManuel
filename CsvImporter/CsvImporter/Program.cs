@@ -1,4 +1,5 @@
-﻿using System;
+﻿using CsvImporter.Controllers;
+using System;
 using System.IO;
 
 namespace CsvImporter
@@ -11,12 +12,22 @@ namespace CsvImporter
         /// <param name="args">Arguments passed to the process</param>
         static void Main(string[] args)
         {
-            InputFileLocation inputFileLocation;
-            string filePath;
+            InputFileLocation inputFileLocation = InputFileLocation.Localhost;
+            string filePath = string.Empty;
+            try
+            {
+                (inputFileLocation, filePath) = GetArguments(args);
+            }
+            catch (ArgumentException argEx)
+            {
+                Console.WriteLine($"ERROR while initializing. Message: {argEx.Message}");
+                Console.WriteLine("Please enter valid arguments. Usage:");
+                Console.WriteLine("\tCsvImporter <Azure|Localhost> <URL/Path>");
+                Environment.Exit(0);
+            }
 
-            (inputFileLocation, filePath) = GetArguments(args);
-
-
+            Manager manager = new Manager(inputFileLocation, filePath);
+            manager.Import();
         }
 
         /// <summary>
@@ -33,8 +44,6 @@ namespace CsvImporter
             // The process needs two and only two arguments
             if (args.Length != 2)
             {
-                Console.WriteLine("Please enter valid arguments. Usage:");
-                Console.WriteLine("\tCsvImporter <Azure|Localhost> <URL/Path>");
                 throw new ArgumentException("The process needs 2 valid arguments. File location: <Azure|Localhost> and Path/URL of the file: <URL/Path>");
             }
 
@@ -43,7 +52,6 @@ namespace CsvImporter
             string path = args[1];
             if (location.ToLower() != "azure" && location.ToLower() != "local" && location.ToLower() != "localhost")
             {
-                Console.WriteLine("Please enter a valid location of the file as the first argument. Valid locations: Azure | Localhost");
                 throw new ArgumentException("The argument location passed to the process is not valid");
             }
 
