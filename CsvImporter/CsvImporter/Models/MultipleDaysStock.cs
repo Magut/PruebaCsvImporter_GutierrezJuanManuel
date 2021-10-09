@@ -33,6 +33,17 @@ namespace CsvImporter.Models
             _endDate = endDate.Date;
         }
 
+        /// <summary>
+        /// Constructor with the stock data and the dates
+        /// </summary>
+        /// <param name="singleDayStock">All the needed data</param>
+        public MultipleDaysStock(SingleDayStock singleDayStock)
+        {
+            _stockId = singleDayStock.StockId;
+            _beginDate = singleDayStock.Date;
+            _endDate = singleDayStock.Date;
+        }
+
         public StockId StockId => _stockId;
         public string PointOfSale => _stockId.PointOfSale;
         public string Product => _stockId.Product;
