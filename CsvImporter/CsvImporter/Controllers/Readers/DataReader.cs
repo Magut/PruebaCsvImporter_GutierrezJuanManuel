@@ -1,7 +1,9 @@
 ﻿using CsvImporter.Models;
 using System;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.IO;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -84,32 +86,41 @@ namespace CsvImporter.Controllers.Readers
         /// <returns>No object or value is returned by this method when it completes</returns>
         public async Task ReadAndEnqueueDataAsync(CancellationToken cancellationToken)
         {
-            using (_stream)
+            try
             {
-                // First row in stream file
-                string row = await ReadNextRowAsync();
+                cancellationToken.ThrowIfCancellationRequested();
 
-                if (row is null)
+                using (_stream)
                 {
-                    Console.WriteLine("ERROR! The Stream has no rows to read.");
-                    return;
-                }
+                    // First row in stream file
+                    string row = await ReadNextRowAsync();
 
-                if (!IsCsvHeader(row))
-                {
-                    _queue.Enqueue(row);
-                }
+                    if (row is null)
+                    {
+                        Console.WriteLine("ERROR! The Stream has no rows to read.");
+                        return;
+                    }
 
-                while ((row = await ReadNextRowAsync()) != null)
-                {
-                    _queue.Enqueue(row);
-                    await WaitUntilQueueHasSpaceAsync(cancellationToken);
-                }
+                    if (!IsCsvHeader(row))
+                    {
+                        _queue.Enqueue(row);
+                    }
 
-                if (_finishedReading != null)
-                {
-                    _finishedReading.Event = true;
+                    while (!cancellationToken.IsCancellationRequested && (row = await ReadNextRowAsync()) != null)
+                    {
+                        _queue.Enqueue(row);
+                        await WaitUntilQueueHasSpaceAsync(cancellationToken);
+                    }
+
+                    if (_finishedReading != null)
+                    {
+                        _finishedReading.Event = true;
+                    }
                 }
+            }
+            catch (OperationCanceledException opCanceledEx)
+            {
+                Debug.WriteLine($"{MethodBase.GetCurrentMethod().Name} => Operation was cancelled successfully. Message: {opCanceledEx.Message}");
             }
         }
 
@@ -155,10 +166,17 @@ namespace CsvImporter.Controllers.Readers
         /// <returns>No object or value is returned by this method when it completes</returns>
         private async Task WaitUntilQueueHasSpaceAsync(CancellationToken cancellationToken)
         {
-            while (_queue.Count >= MaxQueueItems)
+            try
             {
-                // TODO Esto podría ser un evento también disparado por quien desencola
-                await Task.Delay(MilisecondsBetweenQueueSpaceChecks, cancellationToken);
+                while (_queue.Count >= MaxQueueItems)
+                {
+                    // TODO Esto podría ser un evento también disparado por quien desencola
+                    await Task.Delay(MilisecondsBetweenQueueSpaceChecks, cancellationToken);
+                }
+            }
+            catch (OperationCanceledException opCanceledEx)
+            {
+                Debug.WriteLine($"Operation was cancelled successfully. Message: {opCanceledEx.Message}");
             }
         }
 
