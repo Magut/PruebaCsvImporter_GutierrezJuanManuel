@@ -20,8 +20,8 @@ namespace CsvImporter.Test.ModelsTests
             DateTime endDateInstance1 = new DateTime(yearEndDate1, monthEndDate1, dayEndDate1);
             DateTime beginDateInstance2 = new DateTime(yearBeginDate2, monthBeginDate2, dayBeginDate2);
             DateTime endDateInstance2 = new DateTime(yearEndDate2, monthEndDate2, dayEndDate2);
-            StockId s1 = new StockId(1, 1, 1);
-            StockId s2 = new StockId(2, 2, 2);
+            StockId s1 = new StockId("1", "1", 1);
+            StockId s2 = new StockId("2", "2", 2);
             MultipleDaysStock m1 = new MultipleDaysStock(s1, beginDateInstance1, endDateInstance1);
             MultipleDaysStock m2 = new MultipleDaysStock(s2, beginDateInstance2, endDateInstance2);
 
@@ -44,8 +44,8 @@ namespace CsvImporter.Test.ModelsTests
             DateTime endDateInstance1 = new DateTime(yearEndDate1, monthEndDate1, dayEndDate1);
             DateTime beginDateInstance2 = new DateTime(yearBeginDate2, monthBeginDate2, dayBeginDate2);
             DateTime endDateInstance2 = new DateTime(yearEndDate2, monthEndDate2, dayEndDate2);
-            StockId s1 = new StockId(1, 1, 1);
-            StockId s2 = new StockId(2, 2, 2);
+            StockId s1 = new StockId("1", "1", 1);
+            StockId s2 = new StockId("2", "2", 2);
             MultipleDaysStock m1 = new MultipleDaysStock(s1, beginDateInstance1, endDateInstance1);
             MultipleDaysStock m2 = new MultipleDaysStock(s2, beginDateInstance2, endDateInstance2);
 
@@ -66,8 +66,8 @@ namespace CsvImporter.Test.ModelsTests
             DateTime endDateInstance1 = new DateTime(yearEndDate1, monthEndDate1, dayEndDate1);
             DateTime beginDateInstance2 = new DateTime(yearBeginDate2, monthBeginDate2, dayBeginDate2);
             DateTime endDateInstance2 = new DateTime(yearEndDate2, monthEndDate2, dayEndDate2);
-            StockId s1 = new StockId(1, 1, 1);
-            StockId s2 = new StockId(2, 2, 2);
+            StockId s1 = new StockId("1", "1", 1);
+            StockId s2 = new StockId("2", "2", 2);
             MultipleDaysStock m1 = new MultipleDaysStock(s1, beginDateInstance1, endDateInstance1);
             MultipleDaysStock m2 = new MultipleDaysStock(s2, beginDateInstance2, endDateInstance2);
 
@@ -79,7 +79,7 @@ namespace CsvImporter.Test.ModelsTests
         [Fact]
         public void CompareTo_NullInstance_ReturnsPositive()
         {
-            StockId s1 = new StockId(1, 1, 1);
+            StockId s1 = new StockId("1", "1", 1);
             DateTime beginDateInstance1 = new DateTime(2021, 5, 5);
             DateTime endDateInstance1 = new DateTime(2021, 6, 6);
             MultipleDaysStock m1 = new MultipleDaysStock(s1, beginDateInstance1, endDateInstance1);
