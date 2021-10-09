@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "CsvImporter": {
+      "commandName": "Project",
+      "commandLineArgs": "Localhost \"C:\\AnalyticAlways\\Data\\Stock.CSV\""
+    }
+  }
+}

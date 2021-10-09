@@ -13,8 +13,8 @@ namespace CsvImporter.Controllers
     {
         #region Constants for the operation
 
-        private const int NumberOfProcessorTasksDefault = 20;
-        private const int NumberOfWriterTasksDefault = 20;
+        private const int NumberOfProcessorTasksDefault = 30;
+        private const int NumberOfWriterTasksDefault = 30;
 
         #endregion
 
@@ -108,6 +108,7 @@ namespace CsvImporter.Controllers
             Task.WaitAll(allTasks.ToArray());
 
             Console.WriteLine("Finished writing data.");
+            Console.ReadKey();
         }
 
         /// <summary>

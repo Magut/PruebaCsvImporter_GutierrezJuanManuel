@@ -16,7 +16,7 @@ namespace CsvImporter.Controllers.Processors
     {
         # region Constants for the operation
         
-        private const int MiliSecondsBetweenQueueChecks = 3;
+        private const int MiliSecondsBetweenQueueChecks = 5;
         private const int MaxDataToWriteQueueItems = 10000;
 
         #endregion

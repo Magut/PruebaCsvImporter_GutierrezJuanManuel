@@ -24,7 +24,7 @@ namespace CsvImporter.Controllers.Writers
         private const string StoredProcedure_StockHistory_InsertCompressedData = "dbo.StockHistory_InsertCompressedData";
 
         private const int MaxRowsToDeleteInASingleExecutionDefault = 100000;
-        private const int MiliSecondsBetweenDequeTriesDefault = 3;
+        private const int MiliSecondsBetweenDequeTriesDefault = 5;
 
         #endregion
 
