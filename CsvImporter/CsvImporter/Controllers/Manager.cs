@@ -72,20 +72,20 @@ namespace CsvImporter.Controllers
 
             // Itinialize the Reader
             IFileReader reader = Factory.FileReaderCreator(_inputFileLocation, _filePath, _fileUrl, _dataReadQueue, _readerFinishedReading);
-            Task readerTask = new Task(async () => await reader.ReadFileAndEnqueueDataAsync());
+            Task readerTask = Task.Run(async () => await reader.ReadFileAndEnqueueDataAsync())
+                                  .ContinueWith(t => { Console.WriteLine($"Reader Task Faulted! Exception type: {t.Exception.InnerException.GetType().Name} - Message: {t.Exception.InnerException.Message}"); }, TaskContinuationOptions.OnlyOnFaulted);
             allTasks.Add(readerTask);
-            readerTask.Start();
 
 
-            // Initialize the Processor
-            //_processor = Factory.CsvDataProcessorCreator(_dataReadQueue, _dataToWriteQueue, _readerFinishedReading, _processorFinishedProcessing);
-            //Task processorTask = new Task(async () => await _processor.ProcessAndEnqueueDataAsync());
-            //allTasks.Add(processorTask);
-            //processorTask.Start();
+            // Initialize the Processors
             for (int i = 0; i < NumberOfProcessorTasks; i++)
             {
-                Task newProcessor = new Task(async () => await Factory.CsvDataProcessorCreator(_dataReadQueue, _dataToWriteQueue, _readerFinishedReading, _processorFinishedProcessing).ProcessAndEnqueueDataAsync());
-                newProcessor.Start();
+                Task newProcessor = Task.Run(async () => await Factory.CsvDataProcessorCreator(_dataReadQueue,
+                                                                                               _dataToWriteQueue,
+                                                                                               _readerFinishedReading,
+                                                                                               _processorFinishedProcessing)
+                                                                      .ProcessAndEnqueueDataAsync())
+                                        .ContinueWith(t => { Console.WriteLine($"Process Task Faulted! Exception type: {t.Exception.InnerException.GetType().Name} - Message: {t.Exception.InnerException.Message}"); }, TaskContinuationOptions.OnlyOnFaulted);
                 allTasks.Add(newProcessor);
             }
 
@@ -93,19 +93,32 @@ namespace CsvImporter.Controllers
             // Initialize the Writer to Delete the previous data
             string connectionStringName = "Stock";
             IStockWriter writerDeletePreviousData = Factory.StockWriterCreator(connectionStringName, _dataToWriteQueue, _processorFinishedProcessing, _writerFinishedWriting);
-            Task deleteTask = new Task(async () => { await writerDeletePreviousData.DeleteAllAsync(); });
-            deleteTask.Start();
+            Task deleteTask = Task.Run(async () => { await writerDeletePreviousData.DeleteAllAsync(); });
             deleteTask.Wait();
 
+            // Initialize the Writers to Write to database
             for (int i = 0; i < NumberOfWriterTasks; i++)
             {
-                Task newWriter = new Task(async () => { await Factory.StockWriterCreator(connectionStringName, _dataToWriteQueue, _processorFinishedProcessing, _writerFinishedWriting).WriteImportedDataAsync(); });
-                newWriter.Start();
+                Task newWriter = Task.Run(async () => { await Factory.StockWriterCreator(connectionStringName,
+                                                                                         _dataToWriteQueue,
+                                                                                         _processorFinishedProcessing,
+                                                                                         _writerFinishedWriting)
+                                                                     .WriteImportedDataAsync(); })
+                                     .ContinueWith(t => { Console.WriteLine($"Write Task Faulted! Exception type: {t.Exception.InnerException.GetType().Name} - Message: {t.Exception.InnerException.Message}"); }, TaskContinuationOptions.OnlyOnFaulted);
                 allTasks.Add(newWriter);
             }
 
-
-            Task.WaitAll(allTasks.ToArray());
+            try
+            {
+                Task.WaitAll(allTasks.ToArray());
+            }
+            catch (AggregateException ae)
+            {
+                foreach(Exception e in ae.InnerExceptions)
+                {
+                    Console.WriteLine($"Task exception. Type: {e.GetType().Name} - Message: {e.Message}");
+                }
+            }
 
             Console.WriteLine("Finished writing data.");
             Console.ReadKey();

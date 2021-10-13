@@ -7,7 +7,6 @@ using System.Threading.Tasks;
 using System.Collections.Concurrent;
 using System.Threading;
 using System.Reflection;
-using System.Data.SqlClient;
 
 namespace CsvImporter.Controllers.Writers
 {
@@ -106,12 +105,21 @@ namespace CsvImporter.Controllers.Writers
 
                     SingleDayStock singleDayStock = await GetItemFromReaderQueueAsync(cancellationToken);
                     if (singleDayStock is not null)
+                    {
                         await InsertAsync(singleDayStock, cancellationToken);
+                    }
                 }
             }
             catch (OperationCanceledException opCanceledEx)
             {
                 Debug.WriteLine($"{MethodBase.GetCurrentMethod().Name} => Operation was cancelled successfully. Message: {opCanceledEx.Message}");
+            }
+            catch (AggregateException ae)
+            {
+                foreach(var e in ae.InnerExceptions)
+                {
+                    Console.WriteLine($"Writer excpetion. Message: {e.Message}");
+                }
             }
 
             _finishedWriting.Event = true;
